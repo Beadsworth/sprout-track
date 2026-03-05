@@ -5,6 +5,7 @@ import { withAuthContext, AuthResult } from '../utils/auth';
 import { toUTC, formatForResponse, calculateDurationMinutes } from '../utils/timezone';
 import { checkWritePermission } from '../utils/writeProtection';
 import { notifyActivityCreated } from '@/src/lib/notifications/activityHook';
+import { StorageType } from '@prisma/client';
 
 async function handlePost(req: NextRequest, authContext: AuthResult) {
   // Check write permissions for expired accounts
@@ -27,6 +28,14 @@ async function handlePost(req: NextRequest, authContext: AuthResult) {
 
     if (!baby) {
       return NextResponse.json<ApiResponse<null>>({ success: false, error: 'Baby not found in this family.' }, { status: 404 });
+    }
+    
+    // Validate storageType if provided
+    if (body.storageType && !Object.values(StorageType).includes(body.storageType)) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Invalid storage type. Must be STORED or CONSUMED.' },
+        { status: 400 }
+      );
     }
     
     // Convert times to UTC for storage
@@ -55,6 +64,7 @@ async function handlePost(req: NextRequest, authContext: AuthResult) {
         rightAmount: body.rightAmount,
         totalAmount,
         unitAbbr: body.unitAbbr,
+        storageType: body.storageType,
         notes: body.notes,
         caretakerId: caretakerId,
         familyId: userFamilyId,
@@ -163,10 +173,19 @@ async function handlePut(req: NextRequest, authContext: AuthResult) {
       data.totalAmount = leftAmount + rightAmount;
     }
     
+    // Validate storageType if provided
+    if (body.storageType !== undefined && !Object.values(StorageType).includes(body.storageType)) {
+      return NextResponse.json<ApiResponse<PumpLogResponse>>(
+        { success: false, error: 'Invalid storage type. Must be STORED or CONSUMED.' },
+        { status: 400 }
+      );
+    }
+    
     // Add other fields
     if (body.leftAmount !== undefined) data.leftAmount = body.leftAmount;
     if (body.rightAmount !== undefined) data.rightAmount = body.rightAmount;
     if (body.unitAbbr !== undefined) data.unitAbbr = body.unitAbbr;
+    if (body.storageType !== undefined) data.storageType = body.storageType;
     if (body.notes !== undefined) data.notes = body.notes;
     if (body.babyId !== undefined) data.babyId = body.babyId;
 
